@@ -85,6 +85,7 @@
 #include "DREAM.h"
 #include "ESTIA.h"
 #include "FREIA.h"
+#include "HEIMDAL.h"
 #include "LOKI.h"
 #include "MAGIC.h"
 #include "MIRACLES.h"
@@ -95,6 +96,7 @@
 #include "TREX.h"
 #include "VESPA.h"
 #include "VOR.h"
+#include "SKADI.h"
 
 #include "shortDREAM.h"
 #include "shortNMX.h"
@@ -119,7 +121,8 @@ makeESSBL::makeESSBL(const std::string& SN,
 {
 }
 
-makeESSBL::makeESSBL(const makeESSBL& A) : 
+makeESSBL::makeESSBL(const makeESSBL& A) :
+  beamlineSystem::beamlineConstructor(A),
   shutterName(A.shutterName),beamName(A.beamName)
   /*!
     Copy constructor
@@ -137,6 +140,7 @@ makeESSBL::operator=(const makeESSBL& A)
 {
   if (this!=&A)
     {
+      beamlineSystem::beamlineConstructor::operator=(A);
     }
   return *this;
 }
@@ -159,7 +163,9 @@ makeESSBL::getBeamNum(const std::string& Name)
   ELog::RegMethod RegA("makeESSBL","getBeamNum");
   
   if (Name.length()<11)
-    throw ColErr::InvalidLine(Name,"Name not in form : GxBLineTopjj/GxBLineLowjj");
+    throw ColErr::InvalidLine(Name,
+			      "Name not in form : GxBLineTopjj/GxBLineLowjj");
+  
   std::pair<int,int> Out(0,0);
   std::string BN(Name);
   BN[0]=' ';
@@ -206,19 +212,17 @@ makeESSBL::build(Simulation& System,const Bunker& bunkerObj)
     }  
   else if (beamName=="CSPEC")
     {
-      // DREAM beamline
       CSPEC cspecBL("cspec");
       cspecBL.build(System,*mainGIPtr,bunkerObj,voidCell);
     }
   else if (beamName=="DREAM")
     {
-      // DREAM beamline
       DREAM dreamBL("dream");
       dreamBL.build(System,*mainGIPtr,bunkerObj,voidCell);
     }
   else if (beamName=="ESTIA")
     {
-      ESTIA estiaBL;
+      ESTIA estiaBL("estia");
       estiaBL.build(System,*mainGIPtr,bunkerObj,voidCell);
     }
   else if (beamName=="FREIA")
@@ -226,6 +230,12 @@ makeESSBL::build(Simulation& System,const Bunker& bunkerObj)
       FREIA freiaBL("freia");
       freiaBL.build(System,*mainGIPtr,bunkerObj,voidCell);
     }  
+  else if (beamName=="HEIMDAL")
+    {
+      // DREAM beamline
+      HEIMDAL heimdalBL("heimdal");
+      heimdalBL.build(System,*mainGIPtr,bunkerObj,voidCell);
+    }
   else if (beamName=="LOKI")
     {
       // LOKI beamline
@@ -270,13 +280,19 @@ makeESSBL::build(Simulation& System,const Bunker& bunkerObj)
     }
  else if (beamName=="TREX")
     {
-      // Odin beamline
+      // TREX beamline
       TREX TrexBL("trex");
       TrexBL.build(System,*mainGIPtr,bunkerObj,voidCell);
     }
+  else if (beamName=="SKADI")
+    {
+      //SKADI beamline
+      SKADI SkadiBL("skadi");
+      SkadiBL.build(System,*mainGIPtr,bunkerObj,voidCell);
+    }
   else if (beamName=="VESPA")
     {
-      // DREAM beamline
+      // vespa beamline
       VESPA vespaBL("vespa");
       vespaBL.build(System,*mainGIPtr,bunkerObj,voidCell);
     }

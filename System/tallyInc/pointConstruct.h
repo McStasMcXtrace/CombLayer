@@ -27,6 +27,11 @@ namespace attachSystem
   class FixedComp;
 }
 
+namespace mainSystem
+{
+  class inputParam;
+}
+
 
 class Simulation;
 
@@ -43,7 +48,7 @@ namespace tallySystem
   Provides linkage to its outside on FixedComp[0]
 */
 
-class pointConstruct : virtual public basicConstruct
+class pointConstruct
 {
  public:
 
@@ -65,15 +70,8 @@ class pointConstruct : virtual public basicConstruct
 			  long int,const double,
 			  const double,const double) const;
 
-  void addBasicPointTally(Simulation&,const attachSystem::FixedComp&,
-			  const size_t,const double) const;
 
   virtual void writeHelp(std::ostream&) const;
-  
-  static void 
-    calcBeamDirection(const attachSystem::FixedComp&,
-		      Geometry::Vec3D&,Geometry::Vec3D&);
-
 
   static std::vector<Geometry::Vec3D> 
     calcWindowIntercept(const int,const std::vector<int>,

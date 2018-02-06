@@ -71,7 +71,6 @@
 #include "LinkUnit.h"
 #include "FixedComp.h"
 #include "SecondTrack.h"
-#include "TwinComp.h"
 #include "LinkSupport.h"
 #include "Simulation.h"
 #include "inputParam.h"
@@ -79,7 +78,6 @@
 #include "SurfLine.h"
 
 #include "SpecialSurf.h"
-#include "basicConstruct.h" 
 #include "pointConstruct.h" 
 
 
@@ -121,7 +119,7 @@ pointConstruct::processPoint(Simulation& System,
 
 
   const std::string PType(IParam.getValue<std::string>("tally",Index,1)); 
-  
+
   const masterRotate& MR=masterRotate::Instance();
   std::string revStr;
 
@@ -131,10 +129,10 @@ pointConstruct::processPoint(Simulation& System,
       size_t itemIndex(2);
       Geometry::Vec3D PPoint=IParam.getCntVec3D
 	("tally",Index,itemIndex,"Point for point detector");
-      const int flag=IParam.checkItem<std::string>
-	("tally",Index,itemIndex,revStr);
+      const std::string revStr=
+	IParam.getDefValue<std::string>("","tally",Index,itemIndex);
 
-      if (flag && (revStr=="r" || revStr=="R"))
+      if (revStr=="r" || revStr=="R")
 	{
 	  PPoint=MR.forceReverseRotate(PPoint);
 	  ELog::EM<<"Remapped point == "<<PPoint<<ELog::endDiag;
@@ -159,9 +157,9 @@ pointConstruct::processPoint(Simulation& System,
       for(size_t i=0;i<4;i++)
 	WindowPts[i]=IParam.getCntVec3D
 	  ("tally",Index,itemIndex,"Window point "+StrFunc::makeString(i+1));
-      
-      flag=checkItem<std::string>(IParam,Index,5,revStr);
-      if (flag && (revStr=="r" || revStr=="R"))
+
+      revStr=IParam.getDefValue<std::string>("","tally",Index,5);
+      if (revStr=="r" || revStr=="R")
 	PPoint=MR.forceReverseRotate(PPoint);
       
       processPointFree(System,PPoint,WindowPts);
@@ -169,17 +167,20 @@ pointConstruct::processPoint(Simulation& System,
   else if (PType=="window")
     {
       const std::string place=
-	inputItem<std::string>(IParam,Index,2,"position not given");
+	IParam.getValueError<std::string>("tally",Index,2,"position not given");
       const std::string snd=
-	inputItem<std::string>(IParam,Index,3,"front/back/side not given");
+	IParam.getValueError<std::string>("tally",Index,3,"front/back/side not given");
+
       const double D=
-	inputItem<double>(IParam,Index,4,"Distance not given");
+	IParam.getValueError<double>("tally",Index,4,"Distance not given");
 
-      double timeStep(0.0);
-      double windowOffset(0.0);
 
-      checkItem<double>(IParam,Index,5,timeStep);
-      checkItem<double>(IParam,Index,6,windowOffset);
+      const double timeStep=
+	IParam.getDefValue<double>(0.0,"tally",Index,5);
+      const double windowOffset=
+	IParam.getDefValue<double>(0.0,"tally",Index,6);
+	    
+
       const long int linkNumber=attachSystem::getLinkIndex(snd);
       processPointWindow(System,place,linkNumber,D,timeStep,windowOffset);
     }
@@ -187,21 +188,20 @@ pointConstruct::processPoint(Simulation& System,
   else if (PType=="object")
     {
       const std::string place=
-	IParam.outputItem<std::string>("tally",Index,2,"position not given");
+	IParam.getValueError<std::string>("tally",Index,2,"position not given");
       const std::string snd=
-        IParam.outputItem<std::string>("tally",Index,3,
-                                       "front/back/side not given");
+	IParam.getValueError<std::string>("tally",Index,3,"front/back/side not given");
       const double D=
-	IParam.outputItem<double>("tally",Index,4,"Distance not given");
+	IParam.getValueError<double>("tally",Index,4,"Distance not given");
       const long int linkNumber=attachSystem::getLinkIndex(snd);
       processPointFree(System,place,linkNumber,D);
     }
   else if (PType=="objOffset")
     {
       const std::string place=
-	inputItem<std::string>(IParam,Index,2,"position not given");
+	IParam.getValueError<std::string>("tally",Index,2,"position not given");
       const std::string snd=
-	inputItem<std::string>(IParam,Index,3,"front/back/side not give");
+	IParam.getValueError<std::string>("tally",Index,3,"front/back/side not give");
 
       size_t itemIndex(4);
       const Geometry::Vec3D DVec=
@@ -253,8 +253,8 @@ pointConstruct::processPointWindow(Simulation& System,
 	OR.getObjectThrow<attachSystem::FixedComp>(FObject,"FixedComp");
 
       masterPlane=TPtr->getExitWindow(linkPt,Planes);
-      orgPoint= TPtr->getSignedLinkPt(linkPt); 
-      BAxis= TPtr->getSignedLinkAxis(linkPt);
+      orgPoint= TPtr->getLinkPt(linkPt); 
+      BAxis= TPtr->getLinkAxis(linkPt);
       TPoint=orgPoint+BAxis*beamDist;
       
       ELog::EM<<"Link point   == "<<orgPoint<<ELog::endDiag;
@@ -307,8 +307,8 @@ pointConstruct::processPointFree(Simulation& System,
     OR.getObjectThrow<attachSystem::FixedComp>(FObject,"FixedComp");
     
   const int tNum=System.nextTallyNum(5);
-  Geometry::Vec3D TPoint=TPtr->getSignedLinkPt(linkPt);
-  TPoint+=TPtr->getSignedLinkAxis(linkPt)*OD;
+  Geometry::Vec3D TPoint=TPtr->getLinkPt(linkPt);
+  TPoint+=TPtr->getLinkAxis(linkPt)*OD;
 
   std::vector<Geometry::Vec3D> EmptyVec;
   addF5Tally(System,tNum,TPoint,EmptyVec);
@@ -339,7 +339,7 @@ pointConstruct::processPointFree(Simulation& System,
   
   
   const int tNum=System.nextTallyNum(5);
-  Geometry::Vec3D TPoint=TPtr->getSignedLinkPt(linkPt);
+  Geometry::Vec3D TPoint=TPtr->getLinkPt(linkPt);
   
   Geometry::Vec3D XDir,YDir,ZDir;
   TPtr->calcLinkAxis(linkPt,XDir,YDir,ZDir);
@@ -407,59 +407,6 @@ pointConstruct::calcWindowIntercept(const int bPlane,
   VList.resize(4);
   
   return VList;
-}
-
-
-void 
-pointConstruct::addBasicPointTally(Simulation& System,
-				   const attachSystem::FixedComp& FC,
-				   const size_t FCpoint,
-				   const double YStep) const
-  /*!
-    Adds a beamline tally to the system
-    \param System :: Simulation system
-    \param FC :: Guide unit to create tally after
-    \param FCpoint :: Point surface
-    \param YStep :: distance to step
-  */
-{
-  ELog::RegMethod RegA("pointConstruct","addBasicPointTally");
-
-  const masterRotate& MR=masterRotate::Instance();
-
-  const int tNum=System.nextTallyNum(5);
-  // Guide back point
-  Geometry::Vec3D Pt=FC.getLinkPt(FCpoint);
-  const Geometry::Vec3D TVec=FC.getLinkAxis(FCpoint);
-  Pt+=TVec*YStep;      // Add so not on boundary
-  ELog::EM<<"Tally "<<tNum<<" (point) = "
-	  <<MR.calcRotate(Pt)<<ELog::endDiag;
-  tallySystem::addF5Tally(System,tNum,Pt,			      
-			  std::vector<Geometry::Vec3D>());
-  return;
-}
-
-void
-pointConstruct::calcBeamDirection(const attachSystem::FixedComp& FC,
-				  Geometry::Vec3D& BOrigin,
-				  Geometry::Vec3D& BAxis)
-  /*!
-    Calculate the beam direction and origin given a shutter component
-    \param FC :: Component that might be TwinComp
-    \param BOrigin :: Output for Origin
-    \param BAxis :: Output for Axis
-   */
-{
-  ELog::RegMethod RegA("pointConstruct","calcBeamDirection");
-
-  const attachSystem::TwinComp* TwinPtr=
-    dynamic_cast<const attachSystem::TwinComp*>(&FC);
-  BAxis=(TwinPtr) ?  -TwinPtr->getBY() : FC.getLinkAxis(0);
-  
-  BOrigin=(TwinPtr) ?
-    TwinPtr->getBeamStart() : FC.getLinkPt(0); 
-  
-  return;
 }
 
 void

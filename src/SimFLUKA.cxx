@@ -3,7 +3,7 @@
  
  * File:   src/SimFLUKA.cxx
  *
- * Copyright (c) 2004-2017 by Stuart Ansell
+ * Copyright (c) 2004-2017 by Stuart Ansell / Konstantin Batkov
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -51,6 +51,8 @@
 #include "Element.h"
 #include "MapSupport.h"
 #include "MXcards.h"
+#include "Element.h"
+#include "Zaid.h"
 #include "Material.h"
 #include "DBMaterial.h"
 #include "MatrixBase.h"
@@ -98,23 +100,22 @@
 #include "LSwitchCard.h"
 #include "PhysCard.h"
 #include "PhysImp.h"
-#include "SrcData.h"
-#include "SrcItem.h"
-#include "Source.h"
-#include "KCode.h"
 #include "PhysicsCards.h"
 #include "Simulation.h"
 #include "SimFLUKA.h"
 
-
-SimFLUKA::SimFLUKA() : Simulation()
+SimFLUKA::SimFLUKA() :
+  Simulation(),
+  alignment("*...+.WHAT....+....1....+....2....+....3....+....4....+....5....+....6....+.SDUM")
   /*!
     Constructor
   */
 {}
 
 
-SimFLUKA::SimFLUKA(const SimFLUKA& A) : Simulation(A)
+SimFLUKA::SimFLUKA(const SimFLUKA& A) :
+  Simulation(A),
+  alignment(A.alignment)
  /*! 
    Copy constructor
    \param A :: Simulation to copy
@@ -187,16 +188,12 @@ SimFLUKA::writeCells(std::ostream& OX) const
   */
 {
   ELog::RegMethod RegA("SimFLUKA","writeCells");
-  OX<<"* -------------------------------------------------------"<<std::endl;
-  OX<<"* ------------------ CELL CARDS -------------------------"<<std::endl;
-  OX<<"* -------------------------------------------------------"<<std::endl;
-  
-  
+  OX<<"* CELL CARDS "<<std::endl;
+
   OTYPE::const_iterator mp;
   for(mp=OList.begin();mp!=OList.end();mp++)
     mp->second->writeFLUKA(OX);
   OX<<"END"<<std::endl;
-  OX<<"* ++++++++++++++++++++++ END ++++++++++++++++++++++++++++"<<std::endl;
   return;
 }
 
@@ -208,9 +205,7 @@ SimFLUKA::writeSurfaces(std::ostream& OX) const
     \param OX :: Output stream
   */
 {
-  OX<<"* -------------------------------------------------------"<<std::endl;
-  OX<<"* --------------- SURFACE CARDS -------------------------"<<std::endl;
-  OX<<"* -------------------------------------------------------"<<std::endl;
+  OX<<"* SURFACE CARDS "<<std::endl;
 
   const ModelSupport::surfIndex::STYPE& SurMap =
     ModelSupport::surfIndex::Instance().surMap();
@@ -218,24 +213,63 @@ SimFLUKA::writeSurfaces(std::ostream& OX) const
   for(const ModelSupport::surfIndex::STYPE::value_type& sm : SurMap)
     sm.second->writeFLUKA(OX);
   OX<<"END"<<std::endl;
-  OX<<"* ++++++++++++++++++++++ END ++++++++++++++++++++++++++++"<<std::endl;
-  OX<<std::endl;
   return;
 } 
 
 void
+SimFLUKA::writeElements(std::ostream& OX) const
+/*!
+  Write all the used isotopes.
+  To be used by material definitions in the COMPOUND cards.
+ */
+{
+  ELog::RegMethod RegA("SimFLUKA","writeElements");
+
+  OX<<"* ELEMENTS "<<std::endl;
+  OX<<alignment<<std::endl;
+  ModelSupport::DBMaterial& DB=ModelSupport::DBMaterial::Instance();
+
+  std::set<MonteCarlo::Zaid> setZA;
+  boost::format FMTstr("%1$d.%2$02d%3$c");
+
+  for(const OTYPE::value_type& mp : OList)
+    {
+      MonteCarlo::Material m = DB.getMaterial(mp.second->getMat());
+      std::vector<MonteCarlo::Zaid> zaidVec = m.getZaidVec();
+      for (const MonteCarlo::Zaid& ZC : zaidVec)
+	{
+	  setZA.insert(ZC);
+	}
+    }
+
+  std::ostringstream cx,lowmat;
+  MonteCarlo::Zaid ZC;
+  for (const MonteCarlo::Zaid &za : setZA)
+    {
+      if (za.getZaid().empty()) continue;
+      cx<<"MATERIAL "<<za.getZ()<<". - "<<" 1."<<" - - "<<za.getIso()<<". "<<za.getFlukaName()<<" ";
+      lowmat<<getLowMat(za.getZ(),za.getIso(),za.getFlukaName());
+    }
+
+  StrFunc::writeFLUKA(cx.str(),OX);
+  StrFunc::writeFLUKA(lowmat.str(),OX);
+
+  OX<<alignment<<std::endl;
+
+  return;
+}
+
+void
 SimFLUKA::writeMaterial(std::ostream& OX) const
   /*!
-    Write all the used Materials in standard MCNPX output 
-    type.
+    Write all the used Materials in fixed FLUKA format 
     \param OX :: Output stream
   */
 {
   ELog::RegMethod RegA("SimFLUKA","writeMaterial");
 
-  OX<<"* -------------------------------------------------------"<<std::endl;
-  OX<<"* --------------- MATERIAL CARDS ------------------------"<<std::endl;
-  OX<<"* -------------------------------------------------------"<<std::endl;
+  OX<<"* MATERIAL CARDS "<<std::endl;
+  OX<<alignment<<std::endl;
   // WRITE OUT ASSIGNMENT:
   for(const OTYPE::value_type& mp : OList)
     mp.second->writeFLUKAmat(OX);
@@ -247,9 +281,11 @@ SimFLUKA::writeMaterial(std::ostream& OX) const
   for(mp=OList.begin();mp!=OList.end();mp++)
     DB.setActive(mp->second->getMat());
 
+  writeElements(OX);
+
   DB.writeFLUKA(OX);
   
-  OX<<"* ++++++++++++++++++++++ END ++++++++++++++++++++++++++++"<<std::endl;
+  OX<<alignment<<std::endl;
   return;
 }
   
@@ -310,10 +346,85 @@ SimFLUKA::writePhysics(std::ostream& OX) const
     }
 
   // Remaining Physics cards
-  PhysPtr->write(OX,cellOutOrder,voidCells);
-  OX<<"c ++++++++++++++++++++++ END ++++++++++++++++++++++++++++"<<std::endl;
-  OX<<std::endl;  // MCNPX requires a blank line to terminate
+  PhysPtr->writeFLUKA(OX);
   return;
+}
+
+std::string
+SimFLUKA::getLowMatName(const size_t& Z) const
+/*!
+  Return low energy FLUKA material name for the given Z
+  \param Z :: Atomic number
+  \todo : Currently this function return the standard low material name
+    as if standard FLUKA names were used without the LOW-MAT card.
+    This is fine for most of the cases.
+    However, this name actually sometimes depends on temperature and mass
+    number - to be implemented.
+ */
+{
+  ELog::RegMethod RegA("SimFLUKA","getLowMatName");
+
+  std::vector<std::string> lm = {"z=0",
+    "HYDROGEN", "HELIUM",   "LITHIUM",  "BERYLLIU", "BORON",
+    "CARBON",   "NITROGEN", "OXYGEN",   "FLUORINE", "NEON",
+    "SODIUM",   "MAGNESIU", "ALUMINUM", "SILICON",  "PHOSPHO",
+    "SULFUR",   "CHLORINE", "ARGON",    "POTASSIU", "CALCIUM",
+    "SCANDIUM", "TITANIUM", "VANADIUM", "CHROMIUM", "MANGANES",
+    "IRON",     "COBALT",   "NICKEL",   "COPPER",   "ZINC",
+    "GALLIUM",  "GERMANIU", "ARSENIC",  "",         "BROMINE",
+    "KRYPTON",  "",         "STRONTIU", "YTTRIUM",  "ZIRCONIU",
+    "NIOBIUM",  "MOLYBDEN", "99-TC",    "",         "",
+    "PALLADIU", "SILVER",   "CADMIUM",  "INDIUM",   "TIN",     // 50
+    "ANTIMONY", "",         "IODINE",   "XENON",    "CESIUM",
+    "BARIUM",   "LANTHANU", "CERIUM",   "",         "NEODYMIU",
+    "",         "SAMARIUM", "EUROPIUM", "GADOLINI", "TERBIUM", // 65
+    "",         "",         "",         "",         "",
+    "LUTETIUM", "HAFNIUM",  "TANTALUM", "TUNGSTEN", "RHENIUM",
+    "",         "IRIDIUM",  "PLATINUM", "GOLD",     "MERCURY", // 80
+    "",         "LEAD",     "BISMUTH",  "",         "",
+    "",         "",         "",         "",         "230-TH", // 90
+    "",         "233-U",    "",         "239-PU",   "241-AM"
+  };
+
+  if((Z==34)||(Z==37)||(Z==44)||(Z==45)||(Z==52)||(Z==59)||(Z==61)||
+     ((Z>=66)&&(Z<=70))||(Z==76)||(Z==81)||((Z>=84)&&(Z<=89))||(Z==91)||
+     (Z==93))
+    {
+      ELog::EM << "No low energy FLUKA material for Z="<<Z<<ELog::endCrit;
+    }
+
+  if (Z>lm.size())
+    {
+      ELog::EM << "No low energy FLUKA material for Z="<<Z
+	       <<"\nZ is too large"<<ELog::endErr;
+    }
+
+  std::string name(lm[Z]);
+
+  if (name.empty())
+    {
+      ELog::EM << "FLUKA name for material with Z="<<Z<<" undefined" << ELog::endCrit;
+      name = " - ";
+    }
+
+  return name;
+}
+
+std::string
+SimFLUKA::getLowMat(const size_t& Z,const size_t& A,const std::string& mat) const
+/*!
+  Return the LOW-MAT card definition for the given Element
+  \param Z :: Atomic number
+  \param A :: Mass number
+  \param mat :: Material name in the MATERIAL card
+ */
+{
+  ELog::RegMethod RegA("SimFLUKA","getLowMat");
+  std::string str;
+
+  str = "LOW-MAT "+mat+" - - - - - "+getLowMatName(Z)+" ";
+
+  return str;
 }
 
 void
@@ -324,21 +435,33 @@ SimFLUKA::write(const std::string& Fname) const
   */
 {
   ELog::RegMethod RegA("SimFLUKA","write");
-  boost::format FmtStr("%1%%|71t|%2%\n");  
 
-  std::ofstream OX(Fname.c_str()); 
-  OX<<"TITLE "<<std::endl;
-  OX<<" Fluka model from CombLayer"<<std::endl;
+  std::ofstream OX(Fname.c_str());
+  const size_t nCells(OList.size());
+  const size_t maxCells(20000);
+  if (nCells>maxCells)
+    {
+      ELog::EM<<"Number of regions in geometry exceeds FLUKA max: "<<nCells
+	      <<" > "<<maxCells<<ELog::endCrit;
+      ELog::EM<<"See the GLOBAL card documentation"<<ELog::endCrit;
+    }
+
+  StrFunc::writeFLUKA("GLOBAL "+std::to_string(nCells),OX);
+  OX<<"TITLE"<<std::endl;
+  OX<<" Fluka model from CombLayer http://github.com/SAnsell/CombLayer"<<std::endl;
   Simulation::writeVariables(OX,'*');
-  OX<<FmtStr % "GEOBEGIN" % "COMBNAM";
+  StrFunc::writeFLUKA("DEFAULTS - - - - - - PRECISION",OX);
+  StrFunc::writeFLUKA("BEAM -2.0 - - 14.0 3.2 1.0 PROTON",OX);
+  StrFunc::writeFLUKA("BEAMPOS 0.0 -30.0 0.0 0.0 1.0 0.0",OX);
+
+  StrFunc::writeFLUKA("GEOBEGIN - - - - - - COMBNAME",OX);
+  OX<<"  0 0 FLUKA Geometry from CombLayer"<<std::endl;
   writeSurfaces(OX);
   writeCells(OX);
   OX<<"GEOEND"<<std::endl;
   writeMaterial(OX);
-  writeTransform(OX);
-  writeWeights(OX);
-  writeTally(OX);
   writePhysics(OX);
+  OX<<"STOP"<<std::endl;
   OX.close();
   return;
 }

@@ -3,7 +3,7 @@
  
  * File:   physics/DXTConstructor.cxx
  *
- * Copyright (c) 2004-2016 by Stuart Ansell
+ * Copyright (c) 2004-2017 by Stuart Ansell
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -70,11 +70,6 @@
 #include "Simulation.h"
 #include "inputParam.h"
 
-#include "SrcData.h"
-#include "SrcItem.h"
-#include "DSTerm.h"
-#include "Source.h"
-#include "KCode.h"
 #include "ModeCard.h"
 #include "PhysImp.h"
 #include "PhysCard.h"

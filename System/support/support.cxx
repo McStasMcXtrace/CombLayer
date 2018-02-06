@@ -3,7 +3,7 @@
  
  * File:   support/support.cxx
  *
- * Copyright (c) 2004-2016 by Stuart Ansell
+ * Copyright (c) 2004-2017 by Stuart Ansell
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -20,12 +20,12 @@
  *
  ****************************************************************************/
 #include <iostream>
+#include <iterator>
 #include <iomanip>
 #include <cstdio>
 #include <cstring>
 #include <fstream>
 #include <sstream>
-#include <cmath>
 #include <cctype>
 #include <complex>
 #include <vector>
@@ -323,6 +323,7 @@ lowerString(std::string& LN)
 {
   for(size_t i=0;i<LN.length();i++)
     LN[i]=static_cast<char>(tolower(LN[i]));
+  
   return;
 }
 
@@ -486,6 +487,27 @@ singleLine(const std::string& A)
   Out=StrFunc::stripMultSpc(Out);
   Out=StrFunc::fullBlock(Out);
   return Out;
+}
+
+std::string
+frontBlock(const std::string& A)
+  /*!
+    Returns the string from the first non-space to the 
+    last non-space 
+    \param A :: string to process
+    \returns shortened string
+  */
+{
+  if (A.empty()) return "";
+
+  std::string::size_type posA;
+  
+  for(posA=0;posA<A.size() && 
+	isspace(A[posA]);posA++) ;
+
+  if (posA==A.size()) return "";
+  
+  return A.substr(posA);
 }
 
 std::string
@@ -806,6 +828,38 @@ sectionCINDER(std::string& A,double& out)
 
   
   return 0;
+}
+
+void
+writeFLUKA(const std::string& Line,std::ostream& OX)
+  /*!
+    Write out the line in the fixed FLUKA format WHAT(1-6).
+    Replace " - " by space to write empty WHAT cards.
+    \param Line :: full MCNPX line
+    \param OX :: ostream to write to
+  */
+{
+  // this is expensive
+  std::istringstream iss(Line);
+  std::vector<std::string> whats(std::istream_iterator<std::string>{iss},
+				 std::istream_iterator<std::string>());
+
+  size_t i(1);
+  for (std::string& w : whats)
+    {
+      if (w=="-") w=" ";
+
+      if (i % 8==0)
+	OX<<std::setw(10)<<std::left<<w<<std::endl;
+      else if (i % 8==1)
+	OX<<std::setw(10)<<std::left<<w;	
+      else 
+	OX<<std::setw(10)<<std::right<<w;	
+      i++;
+    }
+  
+  if (i % 8 != 1) OX<<std::endl;
+  return;
 }
 
 
@@ -1234,7 +1288,7 @@ writeLine(std::ostream& OX,const T& V,
   const double VUnit=static_cast<double>(V);
 
   const double AVal(std::fabs(VUnit));
-  if (AVal>9.9e4 || (AVal<1e-5 && AVal>1e-38))
+  if (AVal>9.9e4 || (AVal<1e-2 && AVal>1e-38))
     OX<<(SciFMT % VUnit);
   else
     OX<<(DblFMT % VUnit);

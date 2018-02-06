@@ -94,7 +94,7 @@ namespace photonSystem
 
 makePhoton2::makePhoton2() :
   PModObj(new photonSystem::PlateMod("PMod")),
-  Catcher(new constructSystem::insertCylinder("Catcher")),
+  Catcher(new insertSystem::insertCylinder("Catcher")),
   Chamber(new photonSystem::VacuumVessel("Chamber")),
   BaseSupport(new photonSystem::TableSupport("BaseSupport")),
   centralSupport(new photonSystem::HeShield("CentralShield")),
@@ -141,12 +141,12 @@ makePhoton2::buildWings(Simulation& System)
   const double H=Control.EvalDefVar<double>("SPlateHeight",1.5);
   const double W=Control.EvalDefVar<double>("SPlateWidth",7.5);
 
-  const Geometry::Vec3D YA=PModObj->getSignedLinkPt(1);
-  const Geometry::Vec3D YB=PModObj->getSignedLinkPt(2);
-  const Geometry::Vec3D XA=PModObj->getSignedLinkPt(3);
-  const Geometry::Vec3D XB=PModObj->getSignedLinkPt(4);
-  const Geometry::Vec3D ZA=PModObj->getSignedLinkPt(5);
-  const Geometry::Vec3D ZB=PModObj->getSignedLinkPt(6);
+  const Geometry::Vec3D YA=PModObj->getLinkPt(1);
+  const Geometry::Vec3D YB=PModObj->getLinkPt(2);
+  const Geometry::Vec3D XA=PModObj->getLinkPt(3);
+  const Geometry::Vec3D XB=PModObj->getLinkPt(4);
+  const Geometry::Vec3D ZA=PModObj->getLinkPt(5);
+  const Geometry::Vec3D ZB=PModObj->getLinkPt(6);
   
   const double DX=XA.Distance(XB)/2.0;
   const double DY=YA.Distance(YB);   // Not dividde
@@ -155,8 +155,8 @@ makePhoton2::buildWings(Simulation& System)
   for(size_t i=0;i<4;i++)
     {
       SPlate.push_back
-	(std::shared_ptr<constructSystem::insertPlate>
-	 (new constructSystem::insertPlate
+	(std::shared_ptr<insertSystem::insertPlate>
+	 (new insertSystem::insertPlate
 	  ("SPlate"+StrFunc::makeString(i))));
 
       if (i>1)

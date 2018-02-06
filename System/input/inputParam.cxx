@@ -41,8 +41,6 @@
 #include "NameStack.h"
 #include "RegMethod.h"
 #include "OutputLog.h"
-#include "BaseVisit.h"
-#include "BaseModVisit.h"
 #include "support.h"
 #include "stringCombine.h"
 #include "mathSupport.h"
@@ -459,11 +457,11 @@ inputParam::getDefValue(const T& DefVal,
 {
   ELog::RegMethod RegA("inputParam","getDefValue(setIndex,index)");
 
-  const IItem* IPtr=getIndex(K);
-  if (!IPtr)
-    return DefVal;
+  const IItem* IPtr=getIndex(K);  
+  if (!IPtr) return DefVal;
+  
   const size_t NItems=IPtr->getNItems(setIndex);
-
+  
   return (NItems>itemIndex) ?
     IPtr->getObj<T>(setIndex,itemIndex) : DefVal;
 }
@@ -565,6 +563,33 @@ inputParam::getCntVec3D(const std::string& K,
   return IPtr->getCntVec3D(setIndex,itemIndex);
 }
 
+std::vector<std::string>
+inputParam::getAllItems(const std::string& K) const
+  /*!
+    Accessor to the whole raw string
+    \param K :: Key to seach
+    \return Set of raw-strings
+  */
+{
+  ELog::RegMethod Rega("inputParam","getAllItems");
+
+  
+  const IItem* IPtr=getIndex(K);
+  if (!IPtr)
+    throw ColErr::EmptyValue<void>(K+":IPtr");
+  const size_t nSet=IPtr->getNSets();
+
+  std::vector<std::string> Out;
+  for(size_t index=0;index<nSet;index++)
+    {
+      const std::vector<std::string>& IVec=
+	IPtr->getObjectItems(index);
+      Out.insert(Out.end(),IVec.begin(),IVec.end());
+    }
+  
+  return Out;
+}
+
 const std::vector<std::string>&
 inputParam::getObjectItems(const std::string& K,
                            const size_t setIndex) const
@@ -618,19 +643,51 @@ inputParam::outputItem(const std::string& K,
 }
 
 template<typename T>
+T
+inputParam::outputDefItem(const std::string& K,
+			  const size_t setIndex,
+			  size_t& itemIndex,
+			  const T& DefValue) const
+  /*!
+    Get a value based on key
+    \param K :: Key to seach
+    \param setIndex :: set Value
+    \param itemIndex :: Index value [updated]
+    \param DefValue :: Default Value
+    \return Value
+*/
+
+{
+  ELog::RegMethod RegA("inputParam","outputItem(setIndex,index)");
+
+  const IItem* IPtr=getIndex(K);
+  if (!IPtr) return DefValue;
+
+  try
+    {
+      const T Out=IPtr->getObj<T>(setIndex,itemIndex);
+      itemIndex++;
+      return Out;
+    }
+  catch(ColErr::IndexError<size_t>&)
+    { }
+  return DefValue;
+}
+
+template<typename T>
 int
 inputParam::checkItem(const std::string& K,
 		      const size_t setIndex,
 		      const size_t itemIndex,
 		      T& Out) const
-/*!
-  Get a value based on key
-  \param K :: Key to seach
-  \param setIndex :: set Value
-  \param itemIndex :: Index value
-  \param Out :: returned value if found
-  \return 1 on success / 0 on failure
-*/
+ /*!
+   Get a value based on key
+   \param K :: Key to seach
+   \param setIndex :: set Value
+   \param itemIndex :: Index value
+   \param Out :: returned value if found
+   \return 1 on success / 0 on failure
+ */
 
 {
   ELog::RegMethod RegA("inputParam","checkItem(setIndex,index)");
@@ -962,7 +1019,7 @@ inputParam::regDefItem(const std::string& K,const std::string& LK,
   checkKeys(K,LK);
 
   IItem* IPtr=new IItem(K,LK);
-  IPtr->setMaxN(1,0,1);
+  IPtr->setMaxN(1,0,reqItem);
 
   Keys.insert(MTYPE::value_type(K,IPtr));
   if (!LK.empty())
@@ -1303,6 +1360,21 @@ template std::string
 inputParam::outputItem(const std::string&,const size_t,
 		       const size_t,const std::string&) const;
   
+
+template double
+inputParam::outputDefItem(const std::string&,const size_t,
+			  size_t&,const double&) const;
+template int
+inputParam::outputDefItem(const std::string&,const size_t,
+			  size_t&,const int&) const;
+template long int
+inputParam::outputDefItem(const std::string&,const size_t,
+			  size_t&,const long int&) const;
+template size_t
+inputParam::outputDefItem(const std::string&,const size_t,
+			  size_t&,const size_t&) const;
+
+
 template double
 inputParam::getFlagDef(const std::string&,const FuncDataBase& Control,
 		       const std::string&,const size_t) const;

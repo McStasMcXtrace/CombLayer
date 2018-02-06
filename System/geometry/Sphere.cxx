@@ -344,7 +344,6 @@ Sphere::writeFLUKA(std::ostream& OX) const
   
   masterWrite& MW=masterWrite::Instance();
   std::ostringstream cx;
-  Surface::writeHeader(cx);
   cx<<"SPH s"<<getName()<<" "
     <<MW.Num(Centre)<<" "
     <<MW.Num(Radius);
@@ -377,17 +376,22 @@ Sphere::write(std::ostream& OX) const
     \todo (Needs precision) 
   */
 {
+  const char xyz[]="xyz";
+  
   std::ostringstream cx;
   Quadratic::writeHeader(cx);
   cx.precision(Geometry::Nprecision);
   if (Centre.Distance(Geometry::Vec3D(0,0,0))<Geometry::zeroTol)
-    {
-      cx<<"so "<<Radius;
-    }
+    cx<<"so "<<Radius;
   else
     {
-      cx<<"s "<<Centre<<" "<<Radius;
+      const size_t index(Centre.principleDir());
+      if (Centre.abs()-std::abs(Centre[index])<Geometry::zeroTol)
+	  cx<<"s"<<xyz[index]<<" "<<Centre[index]<<" "<<Radius;
+      else
+	cx<<"s "<<Centre<<" "<<Radius;
     }
+  
   StrFunc::writeMCNPX(cx.str(),OX);
   return;
 }

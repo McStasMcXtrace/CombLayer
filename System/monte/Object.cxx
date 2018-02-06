@@ -34,6 +34,7 @@
 #include <sstream>
 #include <algorithm>
 #include <memory>
+#include <boost/format.hpp>
 
 #include "Exception.h"
 #include "FileReport.h"
@@ -60,6 +61,12 @@
 #include "neutron.h"
 #include "RuleCheck.h"
 #include "objectRegister.h"
+#include "masterWrite.h"
+#include "Element.h"
+#include "Zaid.h"
+#include "MXcards.h"
+#include "Material.h"
+#include "DBMaterial.h"
 #include "Object.h"
 
 #include "Debug.h"
@@ -451,14 +458,12 @@ Object::setObject(const int N,const int matNum,
   return 0;
 }
 
-int 
+void
 Object::populate()
   /*! 
      Goes through the cell objects and adds the pointers
      to the SurfPoint keys (using their keyN).
      Addition ot remove NullSurface
-     \retval 1000+ keyNumber :: Error with keyNumber
-     \retval 0 :: successfully populated all the whole OSbject.
   */
 {
   ELog::RegMethod RegA("Object","populate");
@@ -468,7 +473,23 @@ Object::populate()
       HRule.populateSurf();
       populated=1;
     }
-  return 0;
+  return;
+}
+
+void
+Object::rePopulate()
+  /*! 
+     Goes through the cell objects and adds the pointers
+     to the SurfPoint keys (using their keyN).
+     Addition ot remove NullSurface
+     \retval 1000+ keyNumber :: Error with keyNumber
+     \retval 0 :: successfully populated all the whole OSbject.
+  */
+{
+  ELog::RegMethod RegA("Object","rePopulate");
+  HRule.populateSurf();
+  populated=1;
+  return;
 }
 
 int
@@ -881,12 +902,13 @@ Object::hasIntercept(const Geometry::Vec3D& IP,
 
     \param IP :: Initial point
     \param UV :: Forward going vector
-    \return True(1)  / Fail(0)
+    \return True(1) / Fail(0)
   */
 {
   ELog::RegMethod RegA("Object","hadIntercept");
 
   MonteCarlo::LineIntersectVisit LI(IP,UV);
+ 
   std::vector<const Geometry::Surface*>::const_iterator vc;
   for(vc=SurList.begin();vc!=SurList.end();vc++)
     (*vc)->acceptVisitor(LI);
@@ -957,7 +979,7 @@ Object::trackOutCell(const MonteCarlo::neutron& N,double& D,
     \param N :: Neutron
     \param D :: Distance to exit
     \param SPtr :: Surface at exit
-    \param startSurf :: Start surface [not to be used]
+    \param startSurf :: Start surface (not to be used) [0 to ignore]
     \return surface number on exit
   */
 {
@@ -1020,13 +1042,12 @@ Object::trackCell(const MonteCarlo::neutron& N,double& D,
 
   MonteCarlo::LineIntersectVisit LI(N);
   for(const Geometry::Surface* isptr : SurList)
-    {
-      isptr->acceptVisitor(LI);
-    }
+    isptr->acceptVisitor(LI);
 
   const std::vector<Geometry::Vec3D>& IPts(LI.getPoints());
   const std::vector<double>& dPts(LI.getDistance());
   const std::vector<const Geometry::Surface*>& surfIndex(LI.getSurfIndex());
+
   D=1e38;
   surfPtr=0;
   int touchUnit(0);
@@ -1061,8 +1082,16 @@ Object::trackCell(const MonteCarlo::neutron& N,double& D,
     }
   if (touchUnit && D>1e37)
     D=Geometry::zeroTol;
-    
-  return (!surfPtr) ? 0 : bestPairValid*surfPtr->getName();
+
+  if (!surfPtr) return 0;
+  const int NSsurf=surfPtr->getName();
+  const bool pSurfFound(SurSet.find(NSsurf)!=SurSet.end());
+  const bool mSurfFound(SurSet.find(-NSsurf)!=SurSet.end());
+  
+  if (pSurfFound && mSurfFound)
+    return bestPairValid*NSsurf;
+
+  return (pSurfFound) ? -NSsurf : NSsurf;
 }
 
 		  
@@ -1250,23 +1279,23 @@ Object::writeFLUKAmat(std::ostream& OX) const
 {
   ELog::RegMethod RegA("Object","writeFLUKAmat");
 
-  
   ModelSupport::objectRegister& OR=
     ModelSupport::objectRegister::Instance();
   if (!placehold)
     {
       std::string objName=OR.inRenumberRange(ObjName);
-      if (objName.empty())
-	objName="global";
       std::ostringstream cx;
-      cx<<"ASSIGNMA    ";
-      if (!MatN)
-	cx<<" VACUUM";
+      cx<<"ASSIGNMAT ";
+
+      if (!imp)
+	cx<<"BLCKHOLE";
+      else if (MatN)
+	cx<<"M"+std::to_string(MatN);
       else
-	cx<<"    M"<<MatN;
-      
-      cx<<"    "<<objName<<"_"<<ObjName;
-      StrFunc::writeMCNPX(cx.str(),OX);
+	cx<<"VACUUM";
+
+      cx<<" R"+std::to_string(ObjName);
+      StrFunc::writeFLUKA(cx.str(),OX);
     }
   
   return;
@@ -1290,10 +1319,10 @@ Object::writeFLUKA(std::ostream& OX) const
       if (objName.empty())
 	objName="global";
       std::ostringstream cx;
+      cx<<"* "<<objName<<" "<<ObjName<<std::endl;
       cx.precision(10);
 
-
-      cx<<objName<<"_"<<ObjName<<" "<<SurList.size()<<" ";
+      cx<<"R"<<ObjName<<" "<<SurList.size()<<" ";
       cx<<HRule.displayFluka()<<std::endl;
       StrFunc::writeMCNPX(cx.str(),OX);
     }
@@ -1311,6 +1340,11 @@ Object::writePOVRay(std::ostream& OX) const
 {
   ELog::RegMethod RegA("Object","writePOVRay");
 
+  masterWrite& MW=masterWrite::Instance();
+  
+  const ModelSupport::DBMaterial& DB=
+    ModelSupport::DBMaterial::Instance();
+
   ModelSupport::objectRegister& OR=
     ModelSupport::objectRegister::Instance();
   if (!placehold && MatN>0)
@@ -1323,7 +1357,7 @@ Object::writePOVRay(std::ostream& OX) const
       OX<<"// Cell "<<objName<<" "<<ObjName<<"\n";
       OX<<"intersection{\n"
 	<<HRule.displayPOVRay()<<"\n"
-	<< " texture {mat" << MatN <<"}\n"
+	<< " texture {mat" <<MW.NameNoDot(DB.getKey(MatN)) <<"}\n"
 	<< "}"<<std::endl;
     }
   
@@ -1370,19 +1404,23 @@ Object::writePHITS(std::ostream& OX) const
   */
 {
   std::ostringstream cx;
-  cx.precision(10);
-  cx<<str();
-  if (fill)
-    cx<<" "<<"fill="<<fill;
-  if (trcl)
-    cx<<" "<<"trcl="<<trcl;
-  if (universe)
-    cx<<" "<<"u="<<universe;
 
+  cx.precision(10);
   if (placehold)
-    StrFunc::writeMCNPXcomment(cx.str(),OX);
-  else
-    StrFunc::writeMCNPX(cx.str(),OX);
+    {
+      cx<<str();
+      StrFunc::writeMCNPXcomment(cx.str(),OX);
+    }
+  else if (ObjName==1 && imp==0)
+    {
+      cx<<ObjName<<" -1 "<<HRule.display();
+      StrFunc::writeMCNPX(cx.str(),OX);
+    }
+  else 
+    {
+      cx<<str();
+      StrFunc::writeMCNPX(cx.str(),OX);
+    }
   return;
 }
 

@@ -109,6 +109,51 @@ DBMaterial::getFreeNumber() const
 }
 
 void
+DBMaterial::readFile(const std::string& FName)
+  /*!
+    Read a basic MCNP material file
+    \param FName :: Filename
+   */
+{
+  ELog::RegMethod RegItem("DBMaterial","readMaterial");
+
+
+  if (FName.empty()) return;
+
+  std::vector<std::string> MatLines;
+  std::ifstream IX;
+  IX.open(FName.c_str());
+  if (!IX.good())
+    throw ColErr::FileError(0,FName,"File could not be opened");
+  
+  int currentMat(0);          // Current material
+  std::string Line = StrFunc::getLine(IX);           
+  while(IX.good() && currentMat != -100)
+    {
+      Line = StrFunc::getLine(IX);           
+      const int lineType = MonteCarlo::Material::lineType(Line);
+      if (lineType==0 && !MatLines.empty())             // Continue line
+	MatLines.back()+=" "+Line;
+      else if (lineType>0 && lineType==currentMat)      // mt/mx etc line
+	MatLines.push_back(Line);
+      else if (lineType>0 || lineType==-100 || !IX.good())    // newMat / END
+	{
+	  if (currentMat)
+	    {
+	      MonteCarlo::Material MObj;
+	      if (!MObj.setMaterial(MatLines))     
+		setMaterial(MObj);
+	      MatLines.clear();
+	    }
+	  currentMat=lineType;
+	  MatLines.push_back(Line);
+	}
+    }
+  return;
+}
+
+  
+void
 DBMaterial::initMaterial()
   /*!
      Initialize the database of materials
@@ -119,8 +164,10 @@ DBMaterial::initMaterial()
   const std::string MLib="hlib=.70h pnlib=70u";
 
   MonteCarlo::Material MObj;
-  // TWO ULTRA SPECIAL MATERIALS!!!
-  MObj.setMaterial(-1,"InValid","00000.00c 1.0","",MLib); 
+  // THREE ULTRA SPECIAL MATERIALS!!!
+  MObj.setMaterial(-2,"InValid","00000.00c 1.0","",MLib); 
+  setMaterial(MObj);
+  MObj.setMaterial(-1,"Empty","00000.00c 1.0","",MLib); 
   setMaterial(MObj);
   MObj.setMaterial(0,"Void","00000.00c 1.0","",MLib);
   setMaterial(MObj);
@@ -361,7 +408,9 @@ DBMaterial::initMaterial()
   // Material #48 Poly:
   MObj.setMaterial(48,"Poly","6000.70c 0.0333333 "
 		   "1001.70c 0.0666666666","poly.01t",MLib);
+  MObj.setDensity(-0.91);
   setMaterial(MObj);
+
 
   // Material #49 Regular concrete
   // Regular concrete at 2.339 g/cc [supposedly]
@@ -1146,7 +1195,7 @@ DBMaterial::initMaterial()
 
   // Carston concrete
   // Regular concrete - with B4C
-  MObj.setMaterial(131,"RegCartonConcB4C",
+  MObj.setMaterial(131,"RegCarstonConcB4C",
                    "1001.70c 5.50969e-05 1002.70c 6.33687e-09  "
                    "5010.70c 0.0250581 5011.70c 0.100862  "
                    "6000.70c 0.000163366 8016.70c 0.000700512  "
@@ -1209,9 +1258,23 @@ DBMaterial::initMaterial()
   // Material #137 Hi-DensityPoly:
   MObj.setMaterial(137,"HighDensPoly","6000.70c 0.0333333 "
 		   "1001.70c 0.0666666666","poly.01t",MLib);
-  MObj.setDensity(-1.05);
+  MObj.setDensity(-0.97);
   setMaterial(MObj);
 
+  // 
+  // Material #138 Ammonia [695kg/m^3]
+  MObj.setMaterial(138,"Ammonia","7014.70c 0.024801 "
+		   "1001.70c 0.074402","orthh.99t",MLib);
+  setMaterial(MObj);
+
+  // 
+  // Material #139 boro-silicate glass (rho=2.24g 75% siO2 12% B2O4 13% Al2O3
+  MObj.setMaterial(139,"Borosilicate",
+		   "14028.70c 0.0160107 14029.70c 0.000812983  "
+		   "14030.70c 0.000535924 5010.70c 0.000663275  "
+		   "5011.70c 0.00266976 13027.70c 0.00361079  "
+		   "8016.70c 0.0451349 ","",MLib);
+  setMaterial(MObj);
   
   return;
 }
@@ -1284,7 +1347,7 @@ DBMaterial::setMaterial(const MonteCarlo::Material& MO)
   IndexMap.insert(SCTYPE::value_type(MName,MIndex));
   return;
 }
-
+  
 bool
 DBMaterial::createMaterial(const std::string& MName)
   /*!
@@ -1296,12 +1359,26 @@ DBMaterial::createMaterial(const std::string& MName)
   ELog::RegMethod RegA("DBMaterial","createMaterial");
   if (hasKey(MName)) return 1;
 
+  
   // Now key found
-  std::string::size_type pos=MName.find('%');
+  // can be a new density or a new mix:
+  std::string::size_type pos=MName.find('#');
+  double PFrac;
   if (pos!=std::string::npos)
     {
-	
-      double PFrac;
+      const std::string AKey=MName.substr(0,pos);
+      const std::string BKey=MName.substr(pos+1);
+      if (StrFunc::convert(BKey,PFrac))
+	{
+	  createNewDensity(MName,AKey,PFrac);
+	  return 1;
+	}
+    }
+
+  pos=MName.find('%');
+  if (pos!=std::string::npos)
+    {
+
       const std::string AKey=MName.substr(0,pos);
       const std::string BKey=MName.substr(pos+1);
       if (StrFunc::convert(BKey,PFrac))
@@ -1407,6 +1484,49 @@ DBMaterial::createMix(const std::string& Name,
   MA+=MB;
   MA.setNumber(matNum);
   MA.setName(Name);
+
+  setMaterial(MA);
+  return matNum;
+}
+
+int
+DBMaterial::createNewDensity(const std::string& Name,
+			     const std::string& MatA,
+			     const double densityFrac)
+  /*!
+    Creates an new material based on density
+    \param Name :: Name of object
+    \param MatA :: Material 
+    \param densityFrac :: scale of denisty  / -ve for absolte
+    
+    \return current number
+   */
+{
+  ELog::RegMethod RegA("DBMaterial","createNewDensity");
+
+  const int matNum(getFreeNumber());
+
+  // special case for void 
+  if (std::abs(densityFrac)<1e-5)
+    {
+      MonteCarlo::Material MA=getMaterial("Void");
+      MA.setNumber(matNum);
+      MA.setName(Name);
+      return matNum;
+    }
+  
+  MonteCarlo::Material MA=getMaterial(MatA);
+  MA.setNumber(matNum);
+  MA.setName(Name);
+  
+  if (densityFrac>0.0)
+    MA.setDensity(MA.getAtomDensity()*densityFrac);
+  else if (densityFrac> -0.3)          // atom fraction
+    MA.setDensity(-densityFrac);
+  else                                 // read density
+    MA.setDensity(densityFrac);
+
+
   setMaterial(MA);
   return matNum;
 }
@@ -1465,23 +1585,24 @@ DBMaterial::initMXUnits()
 {
   ELog::RegMethod RegA("DBMaterial","initMXUnits");
 
-  typedef std::tuple<int,int,char,std::string,
-		       std::string> MXTYPE;
-  std::vector<MXTYPE> mxVec;
-
-  mxVec.push_back(MXTYPE(6000,70,'c',"h","6012.70h"));
-  mxVec.push_back(MXTYPE(4009,24,'c',"h","model"));
-  mxVec.push_back(MXTYPE(4009,70,'c',"h","model"));
-
-  mxVec.push_back(MXTYPE(4009,80,'c',"h","4009.80h"));
-  mxVec.push_back(MXTYPE(4010,80,'c',"h","4010.80h"));
-
-  mxVec.push_back(MXTYPE(78190,80,'c',"h","78190.80h"));
-  mxVec.push_back(MXTYPE(78192,80,'c',"h","78192.80h"));
-  mxVec.push_back(MXTYPE(78194,80,'c',"h","78194.80h"));
-  mxVec.push_back(MXTYPE(78195,80,'c',"h","78195.80h"));
-  mxVec.push_back(MXTYPE(78196,80,'c',"h","78196.80h"));
-  mxVec.push_back(MXTYPE(78198,80,'c',"h","78198.80h"));
+  typedef std::tuple<size_t,size_t,char,std::string,
+		     std::string> MXTYPE;
+  std::vector<MXTYPE> mxVec=
+    {
+      MXTYPE(6000,70,'c',"h","6012.70h"),
+      MXTYPE(4009,24,'c',"h","model"),
+      MXTYPE(4009,70,'c',"h","model"),
+      
+      MXTYPE(4009,80,'c',"h","4009.80h"),
+      MXTYPE(4010,80,'c',"h","4010.80h"),
+      
+      MXTYPE(78190,80,'c',"h","78190.80h"),
+      MXTYPE(78192,80,'c',"h","78192.80h"),
+      MXTYPE(78194,80,'c',"h","78194.80h"),
+      MXTYPE(78195,80,'c',"h","78195.80h"),
+      MXTYPE(78196,80,'c',"h","78196.80h"),
+      MXTYPE(78198,80,'c',"h","78198.80h")
+    };
 
 
   // NOTE : u is an illegal particle so how does MX work here??
@@ -1730,17 +1851,39 @@ DBMaterial::writeMCNPX(std::ostream& OX) const
 {
   ELog::RegMethod RegA("DBMaterial","writeMCNPX");
 
-  std::set<int>::const_iterator sc;
-  for(sc=active.begin();sc!=active.end();sc++)
+  for(const int sActive : active)
     {
-      if (*sc)
+      if (sActive)
 	{
-	  MTYPE::const_iterator mp=MStore.find(*sc);
+	  MTYPE::const_iterator mp=MStore.find(sActive);
+	  if (mp==MStore.end())
+	    throw ColErr::InContainerError<int>(sActive,"MStore find(active item)");
+	  mp->second.write(OX);
+	}
+    }
+  return;
+}
+
+void
+DBMaterial::writePHITS(std::ostream& OX) const
+  /*!
+    Write everything out to the stream
+    for the phits output
+    \param OX :: Output stream
+  */
+{
+  ELog::RegMethod RegA("DBMaterial","writePHITS");
+
+  for(const int sActive : active)
+    {
+      if (sActive)
+	{
+	  MTYPE::const_iterator mp=MStore.find(sActive);
 	  if (mp==MStore.end())
 	    throw ColErr::InContainerError<int>
-	      (*sc,"MStore find(active item)");
-	  if (mp->first)
-	    mp->second.write(OX);
+              (sActive,"MStore find(active item)");
+          
+	  mp->second.writePHITS(OX);
 	}
     }
   return;
@@ -1753,7 +1896,7 @@ DBMaterial::writeFLUKA(std::ostream& OX) const
     \param OX :: Output stream
   */
 {
-  ELog::RegMethod RegA("DBMaterial","writeMCNPX");
+  ELog::RegMethod RegA("DBMaterial","writeFLUKA");
 
   for(const int sActive : active)
     {
@@ -1761,11 +1904,9 @@ DBMaterial::writeFLUKA(std::ostream& OX) const
 	{
 	  MTYPE::const_iterator mp=MStore.find(sActive);
 	  if (mp==MStore.end())
-	    throw ColErr::InContainerError<int>
-	      (sActive,"MStore find(active item)");
+	    throw ColErr::InContainerError<int>(sActive,"MStore find(active item)");
 	  
-	  if (mp->first)
-	    mp->second.writeFLUKA(OX);
+	  mp->second.writeFLUKA(OX);
 	}
     }
   return;
@@ -1789,8 +1930,7 @@ DBMaterial::writePOVRay(std::ostream& OX) const
 	    throw ColErr::InContainerError<int>
 	      (sActive,"MStore find(active item)");
 	  
-	  if (mp->first)
-	    mp->second.writePOVRay(OX);
+	  mp->second.writePOVRay(OX);
 	}
     }
   return;

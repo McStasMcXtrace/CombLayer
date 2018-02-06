@@ -52,6 +52,7 @@
 #include "ShieldGenerator.h"
 #include "FocusGenerator.h"
 #include "ChopperGenerator.h"
+#include "TwinBaseGenerator.h"
 #include "TwinGenerator.h"
 #include "PitGenerator.h"
 #include "PipeGenerator.h"
@@ -95,7 +96,7 @@ TESTBEAMvariables(FuncDataBase& Control)
   SGen.addRoofMat(5,"Concrete"); 
   SGen.addWallMat(5,"Concrete");
 
-  FGen.setGuideMat("Copper");
+  FGen.setLayer(1,0.5,"Copper");
   FGen.setYOffset(8.0);
   FGen.generateTaper(Control,"testBeamFA",350.0, 10.0,6.0, 12.0,12.0);
 
@@ -114,6 +115,7 @@ TESTBEAMvariables(FuncDataBase& Control)
   // T0 chopper:
   CGen.setMaterial("Stainless304","Aluminium");
   CGen.generateChopper(Control,"testBeamChopperT0",120.0,36.0,32.0);
+
   // T0 Chopper disk 
   BGen.setMaterials("Inconnel","Tungsten");
   BGen.setThick({5.0});
@@ -124,7 +126,7 @@ TESTBEAMvariables(FuncDataBase& Control)
   Control.addVariable("testBeamT0MotorRadius",5.0);
   Control.addVariable("testBeamT0MotorMat","Copper");
   
-  BGen.generateBlades(Control,"testBeamT0Disk",0.0,20.0,30.0);
+  BGen.generateBlades(Control,"testBeamT0Disk",0.0,25.0,35.0);
 
   // CRYOSTAT
   CryGen.generateFridge(Control,"testBeamCryoA",10.0,-10,4.5);

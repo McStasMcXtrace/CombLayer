@@ -82,7 +82,8 @@ namespace setVariable
 {
 
 ShieldGenerator::ShieldGenerator() :
-  nWall(0),nRoof(0),nFloor(0),
+  leftAngle(0.0),rightAngle(0.0),endThick(0.0),
+  endRadius(0.0),nWall(0),nRoof(0),nFloor(0),
   defMat("Stainless304")
   /*!
     Constructor and defaults
@@ -90,6 +91,8 @@ ShieldGenerator::ShieldGenerator() :
 {}
 
 ShieldGenerator::ShieldGenerator(const ShieldGenerator& A) :
+  leftAngle(A.leftAngle),rightAngle(A.rightAngle),
+  endThick(A.endThick),endRadius(A.endRadius),
   nWall(A.nWall),nRoof(A.nRoof),nFloor(A.nFloor),
   defMat(A.defMat),wallLen(A.wallLen),roofLen(A.roofLen),
   floorLen(A.floorLen),wallMat(A.wallMat),roofMat(A.roofMat),
@@ -131,6 +134,35 @@ ShieldGenerator::~ShieldGenerator()
  */
 {}
 
+void
+ShieldGenerator::setAngle(const double LA,const double RA)
+  /*!
+    Set the wall angles
+    \param LA :: Left angle
+    \param RA :: Right angle
+   */
+{
+  ELog::RegMethod RegA("ShieldGenerator","setAngle");
+  leftAngle=LA;
+  rightAngle=RA;
+  return;
+}
+
+void
+ShieldGenerator::setEndWall(const double T,const double R)
+  /*!
+    Set the end wall 
+    \param T :: Thickness of end wall
+    \param R :: Radius of end wall void
+    \todo add additional features for mat/layers etc
+  */
+{
+  endThick=T;
+  endRadius=R;
+  return;
+}
+
+  
 void
 ShieldGenerator::setLayers(MLTYPE& lenMap,MSTYPE& matMap,
                            double& primThick,size_t& nLayer,
@@ -186,7 +218,22 @@ ShieldGenerator::setLayers(MLTYPE& lenMap,MSTYPE& matMap,
   return;
 }
 
+void
+ShieldGenerator::clearLayers()
+  /*!
+    Clear layers
+  */
+{
+  ELog::RegMethod RegA("ShieldGenerator","clearLayers");
 
+  wallLen.clear();
+  floorLen.clear();
+  roofLen.clear();
+  wallMat.clear();
+  floorMat.clear();
+  roofMat.clear();
+  return;
+}
   
 void
 ShieldGenerator::addWall(const size_t index,const double Len,
@@ -406,6 +453,51 @@ ShieldGenerator::generateShield
   Control.addVariable(keyName+"Right",side);
   Control.addVariable(keyName+"Height",height);
   Control.addVariable(keyName+"Depth",depth);
+  Control.addVariable(keyName+"DefMat",defMat);
+  Control.addVariable(keyName+"NSeg",NSeg);
+  Control.addVariable(keyName+"NWallLayers",NWall);
+  Control.addVariable(keyName+"NFloorLayers",NFloor);
+  Control.addVariable(keyName+"NRoofLayers",NRoof);
+  
+  processLayers(Control,keyName);
+  
+  return;
+
+}
+
+void
+ShieldGenerator::generateTriShield
+( FuncDataBase& Control,const std::string& keyName,
+  const double length,const double side,const double height,
+  const double depth,const size_t NSeg,const size_t NLayer)  const
+  /*!
+    Primary funciton for setting the variables
+    \param Control :: Database to add variables 
+    \param keyName :: head name for variable
+    \param length :: overall length
+    \param side :: full extent at sides
+    \param height :: Full height
+    \param depth :: Full depth
+    \param NSeg :: number of segments
+    \param NLayer :: number of layers
+  */
+{
+  ELog::RegMethod RegA("ShieldGenerator","generatorShield");
+
+  const size_t NWall(nWall ? nWall : NLayer);
+  const size_t NRoof(nRoof ? nRoof : NLayer);
+  const size_t NFloor(nFloor ? nFloor : NLayer);
+  
+  Control.addVariable(keyName+"Length",length);  
+  Control.addVariable(keyName+"LeftAngle",leftAngle);
+  Control.addVariable(keyName+"RightAngle",rightAngle);
+  Control.addVariable(keyName+"EndWall",endThick);
+  Control.addVariable(keyName+"EndVoid",endRadius);
+  Control.addVariable(keyName+"Left",side);
+  Control.addVariable(keyName+"Right",side);
+  Control.addVariable(keyName+"Height",height);
+  Control.addVariable(keyName+"Depth",depth);
+  
   Control.addVariable(keyName+"DefMat",defMat);
   Control.addVariable(keyName+"NSeg",NSeg);
   Control.addVariable(keyName+"NWallLayers",NWall);

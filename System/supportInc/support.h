@@ -44,6 +44,8 @@ std::string removeSpace(const std::string&);
 std::string stripMultSpc(const std::string&);
 /// find quoted blocks (section for strings)
 int quoteBlock(std::string&,std::string&);
+/// strip pre-spaces
+std::string frontBlock(const std::string&);
 /// strip pre/post spaces
 std::string fullBlock(const std::string&);
 /// strip pre/post + returns + double spaces:
@@ -87,6 +89,9 @@ template<typename T> int itemize(std::string&,std::string&,T&);
 // Write file in standard MCNPX input form
 void writeControl(const std::string&,std::ostream&,
 		  const size_t,const int);
+
+/// Write file in standard FLUKA input form 
+void writeFLUKA(const std::string&,std::ostream&);
 
 /// Write file in standard MCNPX input form 
 void writeMCNPX(const std::string&,std::ostream&);

@@ -104,6 +104,16 @@ Quadratic::~Quadratic()
   */
 {}
 
+Quadratic*
+Quadratic::clone() const
+  /*!
+    Makes a clone (implicit virtual copy constructor) 
+    \return Quadratic(this)
+  */
+{
+  return new Quadratic(*this);
+}
+
 bool
 Quadratic::operator==(const Quadratic& A) const
   /*!
@@ -162,6 +172,27 @@ Quadratic::eqnValue(const Geometry::Vec3D& Pt) const
   return res;
 }
 
+int
+Quadratic::setSurface(const std::string&)
+  /*!
+    Use General Surface ?
+    \return -1
+   */
+{
+  return -1;
+}
+
+  
+void 
+Quadratic::setBaseEqn()
+  /*!
+    Set baseEqn (nothing to do) as it is 
+    already a baseEqn driven system
+  */
+{
+  return;
+}
+  
 int
 Quadratic::side(const Geometry::Vec3D& Pt) const
   /*!
@@ -564,7 +595,6 @@ Quadratic::writeFLUKA(std::ostream& OX) const
   masterWrite& MW=masterWrite::Instance();
   
   std::ostringstream cx;
-  Surface::writeHeader(cx);
   cx.precision(Geometry::Nprecision);
   cx<<"QUA s"<<getName();
   // write all 10 items in order: as xy xz yz coeffients
@@ -588,11 +618,11 @@ Quadratic::writePOVRay(std::ostream& OX) const
   
   OX<<"#declare s"<<getName()<<" = quadric{ \n"
     <<"<"
-    <<MW.Num(BaseEqn[0])<<" "<<MW.Num(BaseEqn[1])<<" "<<MW.Num(BaseEqn[2])
+    <<MW.Num(BaseEqn[0])<<","<<MW.Num(BaseEqn[1])<<","<<MW.Num(BaseEqn[2])
     <<">,<"
-    <<MW.Num(BaseEqn[3])<<" "<<MW.Num(BaseEqn[4])<<" "<<MW.Num(BaseEqn[5])
+    <<MW.Num(BaseEqn[3])<<","<<MW.Num(BaseEqn[4])<<","<<MW.Num(BaseEqn[5])
     <<">,<"
-    <<MW.Num(BaseEqn[6])<<" "<<MW.Num(BaseEqn[7])<<" "<<MW.Num(BaseEqn[8])
+    <<MW.Num(BaseEqn[6])<<","<<MW.Num(BaseEqn[7])<<","<<MW.Num(BaseEqn[8])
     <<">,"<<MW.Num(BaseEqn[9])<<"\n"<<" }"<<std::endl;  
   return;
 }

@@ -66,6 +66,7 @@
 #include "FixedOffsetGroup.h"
 #include "ContainedComp.h"
 #include "ContainedGroup.h"
+#include "FrontBackCut.h"
 #include "LayerComp.h"
 #include "BaseMap.h"
 #include "CellMap.h"
@@ -74,8 +75,14 @@
 #include "AttachSupport.h"
 
 #include "Cryostat.h"
+#include "TwinBase.h"
 #include "TwinChopper.h"
+#include "TwinChopperFlat.h"
 #include "DiskChopper.h"
+#include "VacuumPipe.h"
+
+#include "CryoMagnetBase.h"
+
 #include "makeSingleItem.h"
 
 namespace singleItemSystem
@@ -108,27 +115,10 @@ makeSingleItem::build(Simulation& System,
 
   int voidCell(74123);
 
-  constructSystem::TwinChopper TwinB("singleTwinB");
-  constructSystem::DiskChopper BDiskTop("singleBBladeTop");
-  constructSystem::DiskChopper BDiskLow("singleBBladeTop");
 
-  TwinB.addInsertCell(voidCell);
-  TwinB.createAll(System,World::masterOrigin(),0);
-
-  BDiskLow.addInsertCell(TwinB.getCell("Void"));
-  BDiskLow.createAll(System,TwinB.getKey("Motor"),6,
-                      TwinB.getKey("BuildBeam"),-1);
-
-  BDiskTop.addInsertCell(TwinB.getCell("Void"));
-  BDiskTop.createAll(System,TwinB.getKey("Motor"),3,
-                      TwinB.getKey("BuildBeam"),-1);
-  
-
-  return;
-  constructSystem::Cryostat A("singleCryo");  
+  constructSystem::CryoMagnetBase A("CryoB");
   A.addInsertCell(voidCell);
   A.createAll(System,World::masterOrigin(),0);
-  return;
 }
 
 

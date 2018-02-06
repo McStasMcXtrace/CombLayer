@@ -124,11 +124,6 @@ BeRef::operator=(const BeRef& A)
       cellIndex=A.cellIndex;
       engActive=A.engActive;
       *InnerComp = *A.InnerComp;
-      xStep=A.xStep;
-      yStep=A.yStep;
-      zStep=A.zStep;
-      xyAngle=A.xyAngle;
-      zAngle=A.zAngle;
       radius=A.radius;
       height=A.height;
       wallThick=A.wallThick;
@@ -141,7 +136,6 @@ BeRef::operator=(const BeRef& A)
       topWallMat=A.topWallMat;
       lowWallMat=A.lowWallMat;
       targSepMat=A.targSepMat;
-
     }
   return *this;
 }
@@ -189,7 +183,7 @@ BeRef::populateWithDef(const FuncDataBase& Control,
     Control.EvalVar<double>(keyName+"TopVoidThick") : topVThick;
   targSepThick=(targetThick<Geometry::zeroTol) ?
     Control.EvalVar<double>(keyName+"TargetSepThick") : targetThick;
-  
+
   return;
 }
 
@@ -263,7 +257,6 @@ BeRef::createSurfaces()
 			   Z*(lowVoidThick+targSepThick/2.0),Z);  
   ModelSupport::buildPlane(SMap,refIndex+116,Origin+
 			   Z*(topVoidThick+targSepThick/2.0),Z);  
-
   
   ModelSupport::buildPlane(SMap,refIndex+205,Origin-Z*(targSepThick/2.0),Z);  
   ModelSupport::buildPlane(SMap,refIndex+206,Origin+Z*(targSepThick/2.0),Z);  
@@ -300,6 +293,7 @@ BeRef::createObjects(Simulation& System)
   Out=ModelSupport::getComposite(SMap,refIndex," -17 -116 206");
   System.addCell(MonteCarlo::Qhull(cellIndex++,0,0.0,Out));
   setCell("topVoid",cellIndex-1);
+
   // top segment
   Out=ModelSupport::getComposite(SMap,refIndex," -7 -6 106");
   System.addCell(MonteCarlo::Qhull(cellIndex++,topRefMat,0.0,Out));
@@ -402,8 +396,8 @@ BeRef::createAll(Simulation& System,
   */
 {
   ELog::RegMethod RegA("BeRef","createAll");
-  populateWithDef(System.getDataBase(),tThick,lpThick,tpThick);
 
+  populateWithDef(System.getDataBase(),tThick,lpThick,tpThick);
   createUnitVector(FC,sideIndex);
   createSurfaces();
   createObjects(System);

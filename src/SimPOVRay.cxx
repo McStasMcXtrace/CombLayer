@@ -3,7 +3,7 @@
  
  * File:   src/SimPOVRay.cxx
  *
- * Copyright (c) 2017 by Konstantin Batkov
+ * Copyright (c) 2004-2017 by Konstantin Batkov/Stuart Ansell
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -48,6 +48,7 @@
 #include "mathSupport.h"
 #include "support.h"
 #include "Element.h"
+#include "Zaid.h"
 #include "MapSupport.h"
 #include "MXcards.h"
 #include "Material.h"
@@ -77,7 +78,6 @@ SimPOVRay::SimPOVRay() : Simulation()
   */
 {}
 
-
 SimPOVRay::SimPOVRay(const SimPOVRay& A) : Simulation(A)
  /*! 
    Copy constructor
@@ -100,8 +100,6 @@ SimPOVRay::operator=(const SimPOVRay& A)
   return *this;
 }
 
-
-
 void
 SimPOVRay::writeCells(std::ostream& OX) const
   /*!
@@ -111,8 +109,7 @@ SimPOVRay::writeCells(std::ostream& OX) const
   */
 {
   ELog::RegMethod RegA("SimPOVRay","writeCells");
-  
-  
+    
   OTYPE::const_iterator mp;
   for(mp=OList.begin();mp!=OList.end();mp++)
     mp->second->writePOVRay(OX);
@@ -159,6 +156,11 @@ SimPOVRay::writeMaterial(std::ostream& OX) const
 
   DB.writePOVRay(OX);
   
+  // Overwrite textures by a user-provided file
+  OX << "#if (file_exists(\"materials.inc\"))" << std::endl;
+  OX << "#include \"materials.inc\"" << std::endl;
+  OX << "#end"  << std::endl;
+
   return;
 }
   

@@ -3,7 +3,7 @@
  
  * File:   attachComp/CellMap.cxx
  *
- * Copyright (c) 2004-2016 by Stuart Ansell
+ * Copyright (c) 2004-2018 by Stuart Ansell
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -100,6 +100,34 @@ CellMap::operator=(const CellMap& A)
   return *this;
 }
   
+void
+CellMap::insertComponent(Simulation& System,
+			 const std::string& cutKey,
+			 const CellMap& CM,
+			 const std::string& holdKey) const
+  /*!
+    Insert a component into a cell
+    \param System :: Simulation to obtain cell from
+    \param cutKey :: Items in the Cell map to slicde
+    \param CM :: Items that will cut this
+    \param holdKey :: Items in the Cell map to be inserted
+   */
+{
+  ELog::RegMethod RegA("CellMap","insertComponent(CellMap)");
+
+  for(const int cn : CM.getCells(holdKey))
+    {
+      const MonteCarlo::Object* OPtr=
+	System.findQhull(cn);
+      if (OPtr)
+	{
+	  const HeadRule compObj=OPtr->getHeadRule().complement();
+	  insertComponent(System,cutKey,compObj);	  
+	}
+    }
+  return;
+}
+
 void
 CellMap::insertComponent(Simulation& System,
 			  const std::string& Key,
@@ -216,7 +244,7 @@ CellMap::insertComponent(Simulation& System,
 			 const std::string& Key,
 			 const FixedComp& FC,
 			 const long int sideIndex) const
-/*!
+  /*!
     Insert an exclude component into a cell
     \param System :: Simulation to obtain cell from
     \param Key :: KeyName for cell
@@ -230,10 +258,30 @@ CellMap::insertComponent(Simulation& System,
     throw ColErr::InContainerError<long int>
       (0,"Zero line surface not defined for : "+FC.getKeyName());
 
-  insertComponent(System,Key,FC.getSignedLinkString(sideIndex));
+  insertComponent(System,Key,FC.getLinkString(sideIndex));
   return;
 }
 
+void
+CellMap::makeCell(const std::string& Key,Simulation& System,
+		  const int cellIndex,const int matNumber,
+		  const double matTemp,const std::string& Out)
+
+  /*!
+    Builds a new cell in Simulation and registers it with the CellMap
+    \param System :: Simulation to obtain cell from
+    \param Key :: KeyName for cell
+    \param cellIndex :: Cell index
+    \param matNumber :: Material number
+    \param matTemp :: Temperature
+    \param Out :: Boolean surface string
+  */
+{
+  ELog::RegMethod RegA("CellMap","makeCell");
+  System.addCell(cellIndex,matNumber,matTemp,Out);
+  addCell(Key,cellIndex);
+  return;
+}
 void
 CellMap::deleteCell(Simulation& System,
 		    const std::string& Key,
@@ -282,7 +330,5 @@ CellMap::deleteCellWithData(Simulation& System,
   System.removeCell(CN);  // too complex to handle from ObjPtr
   return Out;
 }
-
-
  
 }  // NAMESPACE attachSystem

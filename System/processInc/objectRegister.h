@@ -3,7 +3,7 @@
  
  * File:   processInc/objectRegister.h
  *
- * Copyright (c) 2004-2016 by Stuart Ansell
+ * Copyright (c) 2004-2018 by Stuart Ansell
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -79,6 +79,8 @@ class objectRegister
   int getRange(const std::string&) const;
   
   std::string inRange(const int) const;
+  bool hasCell(const std::string&,const int) const;
+
 
   int getRenumberCell(const std::string&) const;
   int getRenumberLast(const std::string&) const;
@@ -108,6 +110,11 @@ class objectRegister
   const std::set<int>& getActiveCells() const
      { return activeCells; }
 
+  /// Get full components list
+  const cMapTYPE& getComponents() const
+    { return Components; }
+    
+  
   std::vector<int> getObjectRange(const std::string&) const;
   void reset();
   void rotateMaster();

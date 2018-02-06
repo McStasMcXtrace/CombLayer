@@ -164,8 +164,8 @@ Cone::setSurface(const std::string& Pstr)
     Processes a standard MCNPX cone string    
     Recall that cones can only be specified on an axis
      Valid input is: 
-     - k/x cen_x cen_y cen_z radius 
-     - kx radius 
+     - k/x cen_y cen_z tan(angle)
+     - kx tan(angle)
     \return : 0 on success, neg of failure 
   */
 {
@@ -208,7 +208,9 @@ Cone::setSurface(const std::string& Pstr)
 
   cutFlag=0;
   StrFunc::section(Line,cutFlag);      // doesn't set on failure    
-
+  if (cutFlag)
+    ELog::EM<<"WARNING == CUTFLAG DEPRECIATED"<<ELog::endWarn;
+  
   Centre=Geometry::Vec3D(cent);
   Normal=Geometry::Vec3D(norm);
   setTanAngle(sqrt(tanAng));
@@ -428,16 +430,6 @@ Cone::onSurface(const Geometry::Vec3D& R) const
   return (side(R)==0) ? 1 : 0;
 }
 
-
-void
-Cone::writePOVRay(std::ostream&) const
-  /*!
-    Write out the cone class in a POV-Ray file format.
-    \param  :: Output Stream (required for multiple std::endl)
-  */
-{
-  ELog::EM<<"Cone::writePovRay: not implemented yet"<< ELog::endErr;
-}
 
   
 void
